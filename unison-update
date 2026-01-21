@@ -1,0 +1,66 @@
+#!/data/data/com.termux/files/usr/bin/bash
+set -e
+
+# Script initialization
+again=false
+if [[ "$1" == '-f' ]]; then shift; again=true; fi
+ocamlVersion=$1; unisonVersion=$2
+base="." # SET THIS TO A DIRECTORY OF YOUR CHOICE, TO PLACE THE BUILD FILES THERE
+
+if [[ ! $ocamlVersion || ! $unisonVersion ]]; then
+  echo "ERROR: Please specify the versions!"
+  echo
+  echo "Usage: $(basename "$0" ) <ocaml version> <unison version>"
+  exit 1
+fi
+
+# Again
+if $again; then
+  rm -ri "$base"
+fi
+
+# Build initialization
+if [[ ! -e done.init ]]; then
+echo "### INIT ###"
+[[ -e "$base" ]] || mkdir -p "$base"
+pkg install build-essential make clang binutils curl tar libandroid-shmem
+touch done.init
+fi
+cd "$base"
+
+
+# OCaml
+if [[ ! -e done.ocaml-$ocamlVersion ]]; then
+echo "### OCAML ###"
+if [[ "$ocamlVersion" =~ ^5\. ]]; then echo "WARNING: Ocaml 5 doesn’t yet work on Termux/Android! Version 4.14.2 has been verified to work!"; fi
+[[ -e ocaml-$ocamlVersion.tar.gz ]] || curl -L https://github.com/ocaml/ocaml/archive/refs/tags/v$ocamlVersion.tar.gz -o ocaml-$ocamlVersion.tar.gz
+if [[ -d ocaml-$ocamlVersion/ ]]; then
+  cd ocaml-$ocamlVersion/
+  make clean
+else
+  tar -xf ocaml-$ocamlVersion.tar.gz
+  cd ocaml-$ocamlVersion/
+fi
+LDFLAGS='-landroid-shmem' ./configure --prefix=$PREFIX
+make -j8
+make install
+cd ..
+touch done.ocaml
+fi
+
+# Unison
+if [[ ! -e done.unison-$unisonVersion ]]; then
+echo "### UNISON ###"
+[[ -e unison-$unisonVersion.tar.gz ]] || curl -L https://github.com/bcpierce00/unison/archive/refs/tags/v$unisonVersion.tar.gz -o unison-$unisonVersion.tar.gz
+if [[ -d unison-$unisonVersion/ ]]; then
+  cd unison-$unisonVersion/
+  make clean
+else
+  tar -xf unison-$unisonVersion.tar.gz
+  cd unison-$unisonVersion/
+fi
+LDFLAGS="-landroid-shmem" make -j8
+make install
+cd ..
+touch done.unison-$unisonVersion
+fi
